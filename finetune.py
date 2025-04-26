@@ -9,7 +9,6 @@ tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased")
 
 train_ds = Dataset.from_pandas(pd.read_csv("data/train.csv").dropna())
 validation_ds = Dataset.from_pandas(pd.read_csv("data/valid.csv").dropna())
-test_ds = Dataset.from_pandas(pd.read_csv("data/test.csv").dropna())
 
 label2id = {"E": 0, "I": 1, "A": 2, "O": 3}
 id2label = {v: k for k, v in label2id.items()}
@@ -21,20 +20,14 @@ train_ds = train_ds.remove_columns("labels")
 validation_ds = validation_ds.map(lambda x: {"label": label2id[x["labels"]]})
 validation_ds = validation_ds.remove_columns("labels")
 
-test_ds = test_ds.map(lambda x: {"label": label2id[x["labels"]]})
-test_ds = test_ds.remove_columns("labels")
-
-
 def tokenize(example):
     return tokenizer(example["text"], padding="max_length", truncation=True, max_length=512)
 
 train_ds = train_ds.map(tokenize)
 validation_ds = validation_ds.map(tokenize)
-test_ds = test_ds.map(tokenize)
 
 train_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
 validation_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
-test_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
 
 model = AutoModelForSequenceClassification.from_pretrained("distilbert/distilbert-base-uncased", num_labels=4)
 data_collator = DefaultDataCollator()
@@ -63,6 +56,5 @@ trainer = Trainer(
     eval_dataset=validation_ds,
     compute_metrics=compute_metrics
 )
-
 
 trainer.train()
