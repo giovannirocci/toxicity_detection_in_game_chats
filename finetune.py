@@ -2,13 +2,22 @@ from datasets import Dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments, DefaultDataCollator
 import pandas as pd
 import numpy as np
-import evaluate
+import evaluate, argparse
 
 
-tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased")
+parser = argparse.ArgumentParser()
+parser.add_argument("--train_file", "-tf", type=str, default="data/train.csv")
+parser.add_argument("--valid_file", "-vf", type=str, default="data/valid.csv")
+parser.add_argument("--model_name", "-m", type=str, default="distilbert/distilbert-base-uncased")
+parser.add_argument("--num_categories", "-nc", type=int, default=4)
+parser.add_argument("--output_dir", "-o", type=str, default="output")
+args = parser.parse_args()
 
-train_ds = Dataset.from_pandas(pd.read_csv("data/train.csv").dropna())
-validation_ds = Dataset.from_pandas(pd.read_csv("data/valid.csv").dropna())
+
+tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+
+train_ds = Dataset.from_pandas(pd.read_csv(args.train_file).dropna())
+validation_ds = Dataset.from_pandas(pd.read_csv(args.valid_file).dropna())
 
 label2id = {"E": 0, "I": 1, "A": 2, "O": 3}
 id2label = {v: k for k, v in label2id.items()}
@@ -29,17 +38,17 @@ validation_ds = validation_ds.map(tokenize)
 train_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
 validation_ds.set_format(type="torch", columns=["input_ids", "attention_mask", "label"])
 
-model = AutoModelForSequenceClassification.from_pretrained("distilbert/distilbert-base-uncased", num_labels=4)
+model = AutoModelForSequenceClassification.from_pretrained(args.model_name, num_labels=args.num_categories)
 data_collator = DefaultDataCollator()
 
 training_args = TrainingArguments(
-    output_dir="distilbert-tox-detection",
+    output_dir=args.output_dir,
     eval_strategy="epoch",
     save_strategy="epoch",
     per_device_eval_batch_size=16,
     num_train_epochs=4,
     load_best_model_at_end=True,
-    metric_for_best_model="f1"
+    label_names=list(label2id.keys())
 )
 
 metric = evaluate.load("f1")

@@ -8,6 +8,7 @@ parser.add_argument("--input_validation", "-iv", type=str)
 parser.add_argument("--output_training", "-otr", type=str)
 parser.add_argument("--output_validation", "-ov", type=str)
 parser.add_argument("--output_test", "-ots", type=str)
+parser.add_argument("--no_context", "-nc", action="store_true", default=False)
 args = parser.parse_args()
 
 from sklearn.model_selection import train_test_split
@@ -30,17 +31,22 @@ def process(df, outfile):
 
     df['utterance'] = clean_utterances(df)
 
-    for _, group in tqdm(df.groupby("conversationId")):
-        chat_history = []
-        for i, row in group.iterrows():
-            # Save the current chat_history before adding the current line
-            chat_history_column.append(history_sep.join(chat_history))
-            chat_history.append(str(row["utterance"]))
+    if not args.no_context:
+        for _, group in tqdm(df.groupby("conversationId")):
+            chat_history = []
+            for i, row in group.iterrows():
+                # Save the current chat_history before adding the current line
+                chat_history_column.append(history_sep.join(chat_history))
+                chat_history.append(str(row["utterance"]))
 
-    # Assign to the dataframe
-    df["chatHistory"] = chat_history_column
+        # Assign to the dataframe
+        df["chatHistory"] = chat_history_column
 
-    df["text"] = df["chatHistory"] + history_sep + df["utterance"]
+    if args.no_context:
+        df["text"] = df["utterance"]
+    else:
+        df["text"] = df["chatHistory"] + history_sep + df["utterance"]
+
     df["labels"] = df["intentClass"]
 
     df["text"] = [row["text"].lstrip(" [SEP] ") for _,row in df.iterrows()]
