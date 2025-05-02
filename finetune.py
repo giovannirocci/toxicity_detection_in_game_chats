@@ -47,8 +47,7 @@ training_args = TrainingArguments(
     save_strategy="epoch",
     per_device_eval_batch_size=16,
     num_train_epochs=4,
-    load_best_model_at_end=True,
-    label_names=list(label2id.keys())
+    label_names=list(label2id.keys()),
 )
 
 metric = evaluate.load("f1")
