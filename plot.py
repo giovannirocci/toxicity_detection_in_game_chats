@@ -7,17 +7,18 @@ import os
 def is_scalar_metrics(results):
     return isinstance(results["precision"], float)
 
-def plot_overall_metrics(model1, model2, output_path, title):
+def plot_overall_metrics(models, output_path, title):
     metrics = ["precision", "recall", "f1"]
     x = np.arange(len(metrics))
-    width = 0.35
+    width = 0.25
 
-    values1 = [model1[m] for m in metrics]
-    values2 = [model2[m] for m in metrics]
+    fig, ax = plt.subplots(figsize=(10, 6))
 
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.bar(x - width/2, values1, width, label=model1["model"])
-    ax.bar(x + width/2, values2, width, label=model2["model"])
+    for i, model in enumerate(models):
+        values = [model[m] for m in metrics]
+        offset = (i - (len(models) - 1) / 2) * width
+        ax.bar(x + offset, values, width, label=model["model"])
+
     ax.set_ylabel("Score")
     ax.set_title(title)
     ax.set_xticks(x)
@@ -29,13 +30,16 @@ def plot_overall_metrics(model1, model2, output_path, title):
     fig.savefig(output_path, dpi=300)
     print(f"Saved overall metrics plot to: {output_path}")
 
-def plot_class_metrics(model1, model2, class_labels, output_path, title):
+def plot_class_metrics(models, class_labels, output_path, title):
     x = np.arange(len(class_labels))
-    width = 0.35
+    width = 0.25
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.bar(x - width/2, model1["f1"], width, label=model1["model"])
-    ax.bar(x + width/2, model2["f1"], width, label=model2["model"])
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    for i, model in enumerate(models):
+        offset = (i - (len(models) - 1) / 2) * width
+        ax.bar(x + offset, model["f1"], width, label=model["model"])
+
     ax.set_ylabel("F1 Score")
     ax.set_title(title)
     ax.set_xticks(x)
@@ -47,11 +51,12 @@ def plot_class_metrics(model1, model2, class_labels, output_path, title):
     fig.savefig(output_path, dpi=300)
     print(f"Saved per-class F1 plot to: {output_path}")
 
-
+# === CLI ===
 parser = argparse.ArgumentParser()
-parser.add_argument("--model1_results", "-m1", required=True, help="Path to model1_results result JSON")
-parser.add_argument("--model2_results", "-m2", required=True, help="Path to model2_results result JSON")
-parser.add_argument("--output_dir", "-o", default="plots", help="Directory to save plots")
+parser.add_argument("--model1", "-m1", required=True)
+parser.add_argument("--model2", "-m2", required=True)
+parser.add_argument("--model3", "-m3", help="Optional third model")
+parser.add_argument("--output_dir", "-o", default="plots")
 parser.add_argument("--class_labels", "-c", nargs="+", default=["Explicitly Toxic", "Implicitly Toxic", "Action", "Other"])
 parser.add_argument("--title1", "-t1", default="Toxicity Detection Performance")
 parser.add_argument("--title2", "-t2", default="Per-Class F1 Score Comparison")
@@ -59,26 +64,29 @@ args = parser.parse_args()
 
 os.makedirs(args.output_dir, exist_ok=True)
 
+# === Load models ===
+models = []
+with open(args.model1) as f:
+    models.append(json.load(f))
+with open(args.model2) as f:
+    models.append(json.load(f))
+if args.model3:
+    with open(args.model3) as f:
+        models.append(json.load(f))
 
-with open(args.model1_results, encoding="utf-8") as f, open(args.model2_results, encoding="utf-8") as g:
-    model1_results = json.load(f)
-    model2_results = json.load(g)
-
-
-if is_scalar_metrics(model1_results) and is_scalar_metrics(model2_results):
+# === Plot ===
+if all(is_scalar_metrics(m) for m in models):
     plot_overall_metrics(
-        model1_results,
-        model2_results,
+        models,
         os.path.join(args.output_dir, "metric_comparison.png"),
         args.title1
     )
-elif not is_scalar_metrics(model1_results) and not is_scalar_metrics(model2_results):
+elif all(not is_scalar_metrics(m) for m in models):
     plot_class_metrics(
-        model1_results,
-        model2_results,
+        models,
         args.class_labels,
         os.path.join(args.output_dir, "per_class_f1_comparison.png"),
         args.title2
     )
 else:
-    raise ValueError("Mismatch in input JSONs: one contains scalar metrics and the other per-class metrics.")
+    raise ValueError("Mismatch: some models use scalar metrics, others use per-class metrics.")
