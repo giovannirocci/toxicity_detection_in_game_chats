@@ -17,7 +17,14 @@ def plot_overall_metrics(models, output_path, title):
     for i, model in enumerate(models):
         values = [model[m] for m in metrics]
         offset = (i - (len(models) - 1) / 2) * width
-        ax.bar(x + offset, values, width, label=model["model"])
+        bars = ax.bar(x + offset, values, width, label=model["model"])
+        for bar in bars:
+            height = bar.get_height()
+            ax.annotate(f'{height:.2f}',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontsize=9)
 
     ax.set_ylabel("Score")
     ax.set_title(title)
@@ -38,7 +45,14 @@ def plot_class_metrics(models, class_labels, output_path, title):
 
     for i, model in enumerate(models):
         offset = (i - (len(models) - 1) / 2) * width
-        ax.bar(x + offset, model["f1"], width, label=model["model"])
+        bars = ax.bar(x + offset, model["f1"], width, label=model["model"])
+        for bar in bars:
+            height = bar.get_height()
+            ax.annotate(f'{height:.2f}',
+                        xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontsize=9)
 
     ax.set_ylabel("F1 Score")
     ax.set_title(title)
@@ -85,7 +99,7 @@ elif all(not is_scalar_metrics(m) for m in models):
     plot_class_metrics(
         models,
         args.class_labels,
-        os.path.join(args.output_dir, "per_class_f1_comparison.png"),
+        os.path.join(args.output_dir, "per_class_f1_comparison_no_context.png"),
         args.title2
     )
 else:
