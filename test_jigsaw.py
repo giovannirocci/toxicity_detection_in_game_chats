@@ -1,12 +1,18 @@
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
-from transformers.pipelines.pt_utils import KeyDataset
 from datasets import Dataset
 import pandas as pd
-import evaluate
+import evaluate, argparse
 
 
-model = AutoModelForSequenceClassification.from_pretrained("distilbert-tox-detection")
-tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased")
+parser = argparse.ArgumentParser()
+parser.add_argument("-m", "--model", required=True, type=str, default="distilbert-tox-detection")
+parser.add_argument("-t", "--tokenizer", required=True, type=str, default="distilbert/distilbert-base-uncased")
+parser.add_argument("-b", "--binary_model", action="store_true", default=False)
+args = parser.parse_args()
+
+
+model = AutoModelForSequenceClassification.from_pretrained(args.model)
+tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 
 jigsaw_df = pd.read_csv("data/jigsaw_toxicity/jigsaw_test.csv").dropna()
 jigsaw_labels = pd.read_csv("data/jigsaw_toxicity/test_labels.csv").dropna()
@@ -42,8 +48,12 @@ for out in pipe(texts, truncation=True, max_length=512):
     predictions.append(out["label"])
 
 
-predictions = list(map(lambda x: label2id[x], predictions))
-binary_preds = [multiclass_to_binary[p] for p in predictions]
+predictions = list(map(lambda x: binary_label2id[x] if args.binary_model else label2id[x], predictions))
+
+if not args.binary_model:
+    binary_preds = [multiclass_to_binary[p] for p in predictions]
+else:
+    binary_preds = predictions
 
 metrics = evaluate.combine(["precision", "recall", "f1"])
 result = metrics.compute(
